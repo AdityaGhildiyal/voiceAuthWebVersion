@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { GetObjectCommand } from "@aws-sdk/client-s3"
 import { s3 } from "@/lib/s3"
 import { connectToDatabase } from "@/lib/mongodb"
 import { User } from "@/models/User"
@@ -27,12 +28,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "No stored voice sample found" }, { status: 400 })
     }
 
-    const storedObject = await s3.getObject({
-      Bucket: process.env.AWS_S3_BUCKET!,
-      Key: s3Key,
-    }).promise()
+    // Fetch stored voice sample from S3 using AWS SDK v3
+    const s3Response = await s3.send(
+      new GetObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET!,
+        Key: s3Key,
+      })
+    )
 
-    const storedBuffer = storedObject.Body as Buffer
+    const storedBuffer = await streamToBuffer(s3Response.Body as NodeJS.ReadableStream)
     const uploadedBuffer = Buffer.from(await audioSample.arrayBuffer())
 
     const isValid = await verifyVoice(storedBuffer, uploadedBuffer)
@@ -52,4 +56,13 @@ export async function POST(request: NextRequest) {
     console.error("Login error:", error)
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })
   }
+}
+
+// Helper: Convert AWS SDK v3 stream to buffer
+async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
+  const chunks: Buffer[] = []
+  for await (const chunk of stream) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk)
+  }
+  return Buffer.concat(chunks)
 }

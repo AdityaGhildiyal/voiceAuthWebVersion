@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { PutObjectCommand } from "@aws-sdk/client-s3"
 import { s3 } from "@/lib/s3"
 import { connectToDatabase } from "@/lib/mongodb"
 import { User } from "@/models/User"
@@ -29,18 +30,22 @@ export async function POST(request: NextRequest) {
     const key2 = `users/${email}/sample2.webm`
 
     await Promise.all([
-      s3.upload({
-        Bucket: process.env.AWS_S3_BUCKET!,
-        Key: key1,
-        Body: buffer1,
-        ContentType: audioSample1.type,
-      }).promise(),
-      s3.upload({
-        Bucket: process.env.AWS_S3_BUCKET!,
-        Key: key2,
-        Body: buffer2,
-        ContentType: audioSample2.type,
-      }).promise(),
+      s3.send(
+        new PutObjectCommand({
+          Bucket: process.env.AWS_S3_BUCKET!,
+          Key: key1,
+          Body: buffer1,
+          ContentType: audioSample1.type,
+        })
+      ),
+      s3.send(
+        new PutObjectCommand({
+          Bucket: process.env.AWS_S3_BUCKET!,
+          Key: key2,
+          Body: buffer2,
+          ContentType: audioSample2.type,
+        })
+      ),
     ])
 
     const newUser = new User({

@@ -24,9 +24,12 @@ export async function verifyVoice(storedBuffer: Buffer, uploadedBuffer: Buffer):
 }
 
 async function decodeAudioBuffer(buffer: Buffer, context: AudioContext): Promise<AudioBuffer> {
-  const arrayBuffer = buffer.buffer.slice(
-    buffer.byteOffset,
-    buffer.byteOffset + buffer.byteLength
-  )
-  return await context.decodeAudioData(arrayBuffer)
-}
+    const uint8Array = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)
+  
+    const arrayBuffer = uint8Array.buffer.slice(
+      uint8Array.byteOffset,
+      uint8Array.byteOffset + uint8Array.byteLength
+    )
+  
+    return await context.decodeAudioData(arrayBuffer)
+  }

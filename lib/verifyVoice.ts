@@ -1,35 +1,25 @@
-import { extractMfccFeatures, normalizeFeatures, calculateDtwDistance } from "./voice-processing"
+import { decode } from "wav-decoder"
+import { extractMfccFeaturesNode, calculateDtwDistance } from "./voice-processing-node"
 
 export async function verifyVoice(storedBuffer: Buffer, uploadedBuffer: Buffer): Promise<boolean> {
   try {
-    const context = new (globalThis.AudioContext || (globalThis as any).webkitAudioContext)()
+    const storedAudio = await decodeWavToFloat32Array(storedBuffer)
+    const uploadedAudio = await decodeWavToFloat32Array(uploadedBuffer)
 
-    const storedAudio = await decodeAudioBuffer(storedBuffer, context)
-    const uploadedAudio = await decodeAudioBuffer(uploadedBuffer, context)
+    const storedMfcc = extractMfccFeaturesNode(storedAudio)
+    const uploadedMfcc = extractMfccFeaturesNode(uploadedAudio)
 
-    const storedMfcc = await extractMfccFeatures(storedAudio)
-    const uploadedMfcc = await extractMfccFeatures(uploadedAudio)
+    const distance = calculateDtwDistance(storedMfcc, uploadedMfcc)
 
-    const storedNorm = normalizeFeatures(storedMfcc)
-    const uploadedNorm = normalizeFeatures(uploadedMfcc)
-
-    const distance = calculateDtwDistance(storedNorm, uploadedNorm)
-
-    console.log("DTW Voice Match Distance:", distance)
-    return distance < 500 
-  } catch (error) {
-    console.error("Voice verification failed:", error)
+    console.log("DTW Distance:", distance)
+    return distance < 500
+  } catch (err) {
+    console.error("Voice verification failed:", err)
     return false
   }
 }
 
-async function decodeAudioBuffer(buffer: Buffer, context: AudioContext): Promise<AudioBuffer> {
-    const uint8Array = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)
-  
-    const arrayBuffer = uint8Array.buffer.slice(
-      uint8Array.byteOffset,
-      uint8Array.byteOffset + uint8Array.byteLength
-    )
-  
-    return await context.decodeAudioData(arrayBuffer)
-  }
+async function decodeWavToFloat32Array(buffer: Buffer): Promise<Float32Array> {
+  const audioData = await decode(buffer)
+  return Float32Array.from(audioData.channelData[0])
+}
